@@ -6,59 +6,58 @@ import requests as r
 import azure.functions as func
 from azure.storage.blob import BlobClient 
 
+DL_KEY = os.environ['GE_DATALAKE_KEY']
+DL_ACCOUNT_URL = os.environ['GE_DATALAKE_BLOB_URL']
+API_KEY = os.environ['ALPHA_VANTAGE_KEY']
+BASE_URL = r'https://www.alphavantage.co/query'
 
-def main(req: func.HttpRequest) -> func.HttpResponse:
 
-    # Event grid vaidation handshake
+def main(event: func.EventGridEvent):
+
+    event_data = event.get_json()
+    symbol = event_data.get('symbol')
+    statement = event_data.get('statement')
+
+    # Define URL parameters for request to Alpha Vantage API
+    params = {
+        'apikey': API_KEY,
+        'function': statement,
+        'symbol': symbol
+    }
+
+    response = r.get(url=BASE_URL, params=params)
+
     try:
-        body = req.get_json()[0] # Only extract first event body
-        event_data = body.get('data')
-        event_type = body.get('eventType')
+        data = response.json()
 
-        if event_type == "Microsoft.EventGrid.SubscriptionValidationEvent":
-            # Extracting nessescary data from handshake body
-            logging.info('Received event handshake request.')
-            val_url = event_data.get('validationUrl')
-            val_code = event_data.get('validationCode')
+    except json.JSONDecodeError as e:
+        logging.error(f'An error occurred while parsing response data.\n{e}')
+        raise e
 
-            # Responding to handshake
-            logging.info('Responding to event grid handshake.')
-            validation_response = {'validationResponse': val_code}
+    try:
+        target_blob = BlobClient(
+            account_url=DL_ACCOUNT_URL,
+            container_name='alpha-vantage',
+            blob_name=f'financial_statements/{statement}/{symbol}.json',
+            credential=DL_KEY
+        )
 
-            return func.HttpResponse(body=json.dumps(validation_response), status_code=200)
-
-        elif event_type == "Microsoft.Storage.BlobCreated":
-            logging.info('Received request to handle Ealyze update data.')
-        
-        else:
-            logging.error('Received unknown event type.')
-            return func.HttpResponse(status_code=400)
-        
-    except (json.JSONDecodeError, KeyError) as e:
-        logging.error('Received invalid event schema.')
-        return func.HttpResponse(status_code=400)
+        target_blob.upload_blob(
+            json.dumps(data)
+        )
     
-    
-    DL_KEY = os.environ['GE_DATALAKE_KEY']
-    API_KEY = os.environ['ALPHA_VANTAGE_KEY']
-    BASE_URL = r'https://www.alphavantage.co/query'
-    SOURCES = ['INCOME_STATEMENT', 'CASH_FLOW', 'BALANCE_SHEET']
+    except Exception as e:
+        logging.error(f'An error occurred while uploading data to Data Lake.\n{e}')
+        raise e
 
-
-    # Getting data from Alpha Vantage
-    for source in SOURCES:
-        # Implement GET requests here
-        pass
-    
-
-    # Saving data to data lake
-    for source in SOURCES:
-        # Implement upload procedure here
-        # Should define the file structure in the data lake
-        pass
 
     
     
+    
+
+   
+    
+
     
 
 
