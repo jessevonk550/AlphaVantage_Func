@@ -33,18 +33,57 @@ def main(event: func.EventGridEvent):
     except json.JSONDecodeError as e:
         logging.error(f'An error occurred while parsing response data.\n{e}')
         raise e
+    else:
+        a = data.get('annualReports', []) # Annual data
+        q = data.get('quarterlyReports', []) # Get quarterly data
 
+
+    # Upload annual data
     try:
-        target_blob = BlobClient(
-            account_url=DL_ACCOUNT_URL,
-            container_name='alpha-vantage',
-            blob_name=f'financial_statements/{statement}/{symbol}.json',
-            credential=DL_KEY
-        )
 
-        target_blob.upload_blob(
-            json.dumps(data)
-        )
+        if len(a) > 0:
+
+            target_blob_annual = BlobClient(
+                account_url=DL_ACCOUNT_URL,
+                container_name='alpha-vantage',
+                blob_name=f'financial_statements/{statement}/annual/{symbol}.json',
+                credential=DL_KEY
+            )
+
+            target_blob_annual.upload_blob(
+                json.dumps(a),
+                overwrite=True
+            )
+
+            logging.info('Succesfully uploaded annual data.')
+        else:
+            logging.info('No annual data present')
+    
+    except Exception as e:
+        logging.error(f'An error occurred while uploading data to Data Lake.\n{e}')
+        raise e
+    
+
+    # Upload quarterly data
+    try:
+        # Only upload when data is present
+        if len(q) > 0:
+
+            target_blob_quarterly = BlobClient(
+                account_url=DL_ACCOUNT_URL,
+                container_name='alpha-vantage',
+                blob_name=f'financial_statements/{statement}/quarterly/{symbol}.json',
+                credential=DL_KEY
+            )
+
+            target_blob_quarterly.upload_blob(
+                json.dumps(q),
+                overwrite=True
+            )
+            
+            logging.info('Succesfully uploaded quarterly data.')
+        else:
+            logging.info('No quarterly data present.')
     
     except Exception as e:
         logging.error(f'An error occurred while uploading data to Data Lake.\n{e}')
