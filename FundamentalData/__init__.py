@@ -18,6 +18,8 @@ def main(event: func.EventGridEvent):
     symbol = event_data.get('symbol')
     statement = event_data.get('statement')
 
+    logging.info(f'Statement: {statement}\nSymbol: {symbol}')
+
     # Define URL parameters for request to Alpha Vantage API
     params = {
         'apikey': API_KEY,
@@ -80,7 +82,7 @@ def main(event: func.EventGridEvent):
                 json.dumps(q),
                 overwrite=True
             )
-            
+
             logging.info('Succesfully uploaded quarterly data.')
         else:
             logging.info('No quarterly data present.')
